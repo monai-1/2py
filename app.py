@@ -365,6 +365,28 @@ if st.session_state.test_finished:
         # 3. 五灵分布图表（延迟0.6s入场）
         st.markdown("<div class='fade-in delay-3'>", unsafe_allow_html=True)
         st.markdown("### 📊 五灵元素分布")
+        import matplotlib.pyplot as plt
+        from matplotlib import font_manager
+        import os
+        import requests
+        
+        # --- 核心修复：动态加载中文字体 ---
+        font_path = "NotoSansSC-Regular.otf"
+        if not os.path.exists(font_path):
+            # 从 GitHub 下载开源中文字体 (Noto Sans SC)
+            font_url = "https://github.com/googlefonts/noto-cjk/raw/main/Sans/OTF/SimplifiedChinese/NotoSansSC-Regular.otf"
+            try:
+                r = requests.get(font_url, timeout=10)
+                with open(font_path, "wb") as f:
+                    f.write(r.content)
+            except:
+                pass # 下载失败则回退
+        
+        # 配置字体
+        if os.path.exists(font_path):
+            font_manager.fontManager.addfont(font_path)
+            plt.rcParams["font.sans-serif"] = ["Noto Sans SC"]
+        else:
         # 优化版图表：带X/Y轴标签，中文完美显示
         plt.rcParams["font.sans-serif"] = ["Microsoft YaHei", "SimHei", "WenQuanYi Micro Hei", "Arial Unicode MS"]  # 全局中文设置
         plt.rcParams["axes.unicode_minus"] = False
