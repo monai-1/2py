@@ -362,7 +362,7 @@ if st.session_state.test_finished:
             st.image("https://via.placeholder.com/800x400?text=五灵人格本命画像", use_container_width=True)
         st.markdown("</div>", unsafe_allow_html=True)
         
-        # 3. 五灵分布图表（延迟0.6s入场）
+        # 3. 五灵分布图表（延迟0.6s入场，终极防崩版）
         st.markdown("<div class='fade-in delay-3'>", unsafe_allow_html=True)
         st.markdown("### 📊 五灵元素分布")
         
@@ -371,54 +371,97 @@ if st.session_state.test_finished:
         import os
         import requests
         
-        # --- 核心修复：动态加载中文字体 ---
+        # --- 核心逻辑：只要图表能画出来，怎么都行 ---
+        font_loaded = False
         font_path = "NotoSansSC-Regular.otf"
+        
+        # 1. 尝试清理旧的损坏文件
+        if os.path.exists(font_path) and os.path.getsize(font_path) < 1000000: # 如果小于1MB，视为损坏
+            try:
+                os.remove(font_path)
+            except:
+                pass
+
+        # 2. 尝试下载字体 (增加超时和流式下载)
         if not os.path.exists(font_path):
-            # 从 GitHub 下载开源中文字体 (Noto Sans SC)
             font_url = "https://github.com/googlefonts/noto-cjk/raw/main/Sans/OTF/SimplifiedChinese/NotoSansSC-Regular.otf"
             try:
-                r = requests.get(font_url, timeout=10)
-                with open(font_path, "wb") as f:
-                    f.write(r.content)
+                # 使用 stream=True 防止大文件下载卡死
+                r = requests.get(font_url, timeout=15, stream=True) 
+                if r.status_code == 200:
+                    with open(font_path, "wb") as f:
+                        for chunk in r.iter_content(chunk_size=8192):
+                            f.write(chunk)
             except:
-                pass  # 下载失败则回退
-        
-        # 配置字体（注意：此处开始缩进必须一致）
-        if os.path.exists(font_path):
-            font_manager.fontManager.addfont(font_path)
-            plt.rcParams["font.sans-serif"] = ["Noto Sans SC"]
-        else:
-            # 兜底方案：尝试 Linux 系统可能存在的字体
-            plt.rcParams["font.sans-serif"] = ["WenQuanYi Micro Hei", "SimHei", "Arial Unicode MS"]
-        
-        plt.rcParams["axes.unicode_minus"] = False  # 解决负号显示问题
+                pass # 下载失败静默处理
+
+        # 3. 尝试加载字体 (核心防崩)
+        try:
+            if os.path.exists(font_path) and os.path.getsize(font_path) > 1000000:
+                font_manager.fontManager.addfont(font_path)
+                plt.rcParams["font.sans-serif"] = ["Noto Sans SC"]
+                plt.rcParams["axes.unicode_minus"] = False
+                font_loaded = True
+        except Exception as e:
+            # 如果加载字体报错，直接放弃
+            font_loaded = False
+
+        # 4. 如果没加载成功，准备一套英文标签兜底
+        elem_labels = list(st.session_state.scores.keys()) # 默认中文
+        if not font_loaded:
+            # 兜底方案：拼音映射
+            pinyin_map = {"火": "Huo", "水": "Shui", "土": "Tu", "风": "Feng", "雷": "Lei"}
+            elem_labels = [pinyin_map.get(k, k) for k in st.session_state.scores.keys()]
+            plt.rcParams["font.sans-serif"] = ["DejaVu Sans"] # 系统默认无衬线字体
+
         # ----------------------------------
 
-        fig, ax = plt.subplots(figsize=(7, 4))
-        bars = ax.bar(
-            st.session_state.scores.keys(),
-            st.session_state.scores.values(),
-            color=["#FF4500", "#1E90FF", "#8B4513", "#32CD32", "#FFD700"]
-        )
-        # 图表标签优化
-        ax.set_title("五灵元素分数分布", fontsize=14, fontweight="bold")
-        ax.set_xlabel("五灵元素", fontsize=12)
-        ax.set_ylabel("得分", fontsize=12)
-        ax.set_ylim(0, 100)  # 固定Y轴范围，更直观
-        plt.xticks(fontsize=11)
-        plt.yticks(fontsize=11)
-        # 柱状图顶部显示分数
-        for bar in bars:
-            height = bar.get_height()
-            ax.text(
-                bar.get_x() + bar.get_width()/2.,
-                height + 2,
-                f"{int(height)}分",
-                ha="center",
-                va="bottom",
-                fontsize=10
+        # 绘图 (这里绝对不能崩)
+        try:
+            fig, ax = plt.subplots(figsize=(7, 4))
+            values = list(st.session_state.scores.values())
+            keys = elem_labels if not font_loaded else list(st.session_state.scores.keys())
+            
+            bars = ax.bar(
+                keys,
+                values,
+                color=["#FF4500", "#1E90FF", "#8B4513", "#32CD32", "#FFD700"]
             )
-        st.pyplot(fig)
+            
+            # 标题也做兼容处理
+            title_text = "Wu Ling Element Distribution" if not font_loaded else "五灵元素分数分布"
+            xlabel_text = "Elements" if not font_loaded else "五灵元素"
+            ylabel_text = "Score" if not font_loaded else "得分"
+            
+            ax.set_title(title_text, fontsize=14, fontweight="bold")
+            ax.set_xlabel(xlabel_text, fontsize=12)
+            ax.set_ylabel(ylabel_text, fontsize=12)
+            ax.set_ylim(0, 100)
+            plt.xticks(fontsize=11)
+            plt.yticks(fontsize=11)
+            
+            # 柱子顶部显示数字 (数字不需要字体)
+            for bar in bars:
+                height = bar.get_height()
+                ax.text(
+                    bar.get_x() + bar.get_width()/2.,
+                    height + 2,
+                    f"{int(height)}",
+                    ha="center",
+                    va="bottom",
+                    fontsize=10
+                )
+            st.pyplot(fig)
+            
+            # 如果是用拼音显示的，给用户一个小提示
+            if not font_loaded:
+                st.caption("(Tip: 为确保图表正常显示，元素名称暂以拼音展示)")
+                
+        except Exception as e:
+            # 最后的兜底：如果绘图都失败了，直接显示表格
+            st.warning("图表渲染暂时遇到问题，以下是分数详情：")
+            st.dataframe(pd.DataFrame({"元素": list(st.session_state.scores.keys()), "分数": list(st.session_state.scores.values())}), hide_index=True)
+
         st.markdown("</div>", unsafe_allow_html=True)
         
         # 4. 道学评语（文字特效，延迟0.8s入场）
