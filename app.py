@@ -366,7 +366,7 @@ if st.session_state.test_finished:
         st.markdown("<div class='fade-in delay-3'>", unsafe_allow_html=True)
         st.markdown("### 📊 五灵元素分布")
         # 优化版图表：带X/Y轴标签，中文完美显示
-        plt.rcParams["font.sans-serif"] = ["SimHei"]  # 全局中文设置
+        plt.rcParams["font.sans-serif"] = ["Microsoft YaHei", "SimHei", "WenQuanYi Micro Hei", "Arial Unicode MS"]  # 全局中文设置
         plt.rcParams["axes.unicode_minus"] = False
         fig, ax = plt.subplots(figsize=(7, 4))
         bars = ax.bar(
